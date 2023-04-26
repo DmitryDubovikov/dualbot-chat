@@ -1,37 +1,47 @@
 import socket
-from threading import Thread
+import threading
+import logging
+
+logging.basicConfig(
+    filename="chat.log", format="%(asctime)s - %(message)s", level=logging.INFO
+)
 
 HOST = "127.0.0.1"
 PORT = 12345
 
-
-def handle_client(client_socket, client_address):
-    print(f"Client connected {client_address}")
-
-    while True:
-        message = client_socket.recv(1024)
-        if message:
-            print(f"Message received from client {client_address}: {message.decode()}")
-            broadcast(message, client_address)
-        else:
-            client_socket.close()
-            break
+clients = []
 
 
-def broadcast(message, sender_address):
-    for client in clients:
-        if client[1] != sender_address:
-            client[0].sendall(message)
+def handle_messages(conn, addr):
+    try:
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+            message = data.decode("utf-8")
+            logging.info(f"Received from {addr[0]}:{addr[1]}: {message}")
+            for client in clients:
+                if client != conn:
+                    client.sendall(data)
+    except:
+        logging.info(f"Connection with {addr[0]}:{addr[1]} lost unexpectedly")
+    finally:
+        if conn in clients:
+            clients.remove(conn)
+        conn.close()
 
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-    server_socket.bind((HOST, PORT))
-    server_socket.listen()
-    print(f"The server is running on {HOST}:{PORT}")
+def listen():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        s.listen()
+        logging.info(f"Server started on {HOST}:{PORT}")
+        while True:
+            conn, addr = s.accept()
+            clients.append(conn)
 
-    clients = []
+            thread = threading.Thread(target=handle_messages, args=(conn, addr))
+            thread.start()
 
-    while True:
-        client_socket, client_address = server_socket.accept()
-        clients.append((client_socket, client_address))
-        Thread(target=handle_client, args=(client_socket, client_address)).start()
+
+listen()

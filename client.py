@@ -1,22 +1,53 @@
 import socket
-from threading import Thread
+import sys
+import threading
+
+
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 HOST = "127.0.0.1"
 PORT = 12345
+NICKNAME = ""
+
+client_socket.connect((HOST, PORT))
+print(f"[CONNECTED] Connected to {HOST}:{PORT}")
 
 
-def receive_messages(client_socket):
+def receive_messages():
     while True:
-        message = client_socket.recv(1024)
-        print(f"Message received from the server: {message.decode()}")
+        try:
+            message = client_socket.recv(1024).decode()
+            print(message)
+        except socket.error as e:
+            print(f"[ERROR] Socket error occurred: {str(e)}")
+            sys.exit()
 
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-    client_socket.connect((HOST, PORT))
-    print(f"Connected to server {HOST}:{PORT}")
-
-    Thread(target=receive_messages, args=(client_socket,)).start()
-
+def send_messages():
     while True:
-        message = input("Enter your message: ")
-        client_socket.sendall(message.encode())
+        try:
+            message = input()
+            if message.lower() == "quit":
+                break
+            message = f"{NICKNAME} says: " + message
+            client_socket.send(message.encode())
+        except socket.error as e:
+            print(f"[ERROR] Socket error occurred: {str(e)}")
+            sys.exit()
+
+
+NICKNAME = input("Enter your nickname: ")
+
+
+receive_thread = threading.Thread(target=receive_messages)
+send_thread = threading.Thread(target=send_messages)
+receive_thread.start()
+send_thread.start()
+
+
+receive_thread.join()
+send_thread.join()
+
+
+client_socket.close()
+print("[DISCONNECTED] Client disconnected.")
