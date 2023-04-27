@@ -24,7 +24,7 @@ def handle_messages(conn, addr):
                 if client != conn:
                     client.sendall(data)
     except:
-        logging.info(f"Connection with {addr[0]}:{addr[1]} lost unexpectedly")
+        logging.error(f"Connection with {addr[0]}:{addr[1]} lost unexpectedly")
     finally:
         if conn in clients:
             clients.remove(conn)
